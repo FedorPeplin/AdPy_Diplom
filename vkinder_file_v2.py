@@ -4,26 +4,33 @@ from pprint import pprint
 import string
 import psycopg2
 
-conn = psycopg2.connect(database='netology', user='netology', password='netology', host='localhost', port=5432)
-cur = conn.cursor()
+def conn():
+    conn = psycopg2.connect(database='netology', user='netology', password='netology', host='localhost', port=5432)
+    return conn
+
+def cur():
+    cur = conn.cursor()
+    return cur
 
 with open('tokenfile.txt') as f:
     token = f.read()
 
-params = {
-    'access_token': token,
-    'v': 5.103
-}
+def params():
 
-def get_id(in_data):
-    #Возврат численного ID пользователя
+    params = {
+        'access_token': token,
+        'v': 5.103
+    }
+    return params
+
+def get_id(in_data): #Возврат численного ID пользователя
     if in_data.isdecimal():
         u_id = in_data
     else:
         request_url = 'https://api.vk.com/method/users.get?user_ids=' + in_data
         response = requests.get(
             request_url,
-            params
+            params()
         )
         response_json = response.json()
         u_id = response_json['response'][0]['id']
@@ -34,26 +41,25 @@ def get_searcher_id():
     return get_id(searcher_id)
 
 def get_country_code(country_name):
-    params['need_all'] = 0
-    params['code'] = country_name
+    params()['need_all'] = 0
+    params()['code'] = country_name
     response_country = requests.get(
         'https://api.vk.com/method/database.getCountries',
-        params
+        params()
     )
     counries_json = response_country.json()
     return counries_json['response']['items'][0]['id']
 
 
-def get_city_code(city_string):
-    #Берёт имя города и возвращает его код ВК. Если не найден - то возвращает 0)
+def get_city_code(city_string): #Берёт имя города и возвращает его код ВК. Если не найден - то возвращает 0)
     country_name = input('Введите имя страны (2 латинские буквы): ')
     country_code = get_country_code(country_name)
-    params['country_id'] = country_code
-    params['q'] = city_string
-    params['need_all'] = 0
+    params()['country_id'] = country_code
+    params()['q'] = city_string
+    params()['need_all'] = 0
     response_cities = requests.get(
         'https://api.vk.com/method/database.getCities',
-        params
+        params()
     )
     cities_json = response_cities.json()
     if cities_json['response']['count'] > 0:
@@ -65,11 +71,11 @@ def get_city_code(city_string):
 
 def enter_data():
     try:
-        require_dict = {'city': get_city_code(input('Enter city: ')), 'age_from': int(input('Enter minimal age: ')),
-                        'age_to': int(input('Enter maximal age: ')), 'sex': input('Enter gender (M/F): '),
-                        'interests': input('Enter interests: '), 'music': input('Enter music interests: '),
+        require_dict = {'city': get_city_code(input('Введите город: ')), 'возраст от': int(input('Введите минимальный образ: ')),
+                        'возраст до': int(input('Введите максимальный образ: ')), 'пол': input('Введите пол (M/F): '),
+                        'интересы': input('Введите интересы: '), 'музыка': input('Введите музыкальные интересы: '),
                         'books': input('Enter literature interests: ')}
-        if require_dict['sex'].lower() not in ['m', 'f']:
+        if require_dict['пол'].lower() not in ['m', 'f']:
             raise KeyError
     except KeyError:
         print('Некорректный ввод, попробуйте сначала')
@@ -79,46 +85,77 @@ def enter_data():
         require_dict = enter_data()
     return require_dict
 
+def get_user_data(u_id): #берёт данные пользователя и помещает их в словарь
+    print('Получение пользовательских данных...')
+    params()['user_ids'] = u_id
+    params()['fields'] = ['city', 'interests', 'music', 'movies', 'tv', 'books', 'games']
+    response_user_info = requests.get(
+        'https://api.vk.com/method/users.get',
+        params()
+    )
+    user_info_json = response_user_info.json()
 
-# def enter_data_2(): #втораая версия ввода данных
-#     user_dict = get_user_data(user_id)
-#     require_dict = {}
-#     try:
-#         if user_dict['city']:
-#             require_dict['city'] = user_dict['city']
-#         else:
-#             require_dict['city'] = get_city_code(input('Введите город: '))
-#
-#         if user_dict['age']:
-#             require_dict['age_from'] = user_dict['age'] - 5
-#             require_dict['age_to'] = user_dict['age'] + 5
-#         else:
-#             require_dict['age_from'] = int(input('Введите минимальный возраст: '))
-#             require_dict['age_to'] = int(input('Введите максимальный возраст: '))
-#
-#         if user_dict['sex']:
-#             require_dict['sex'] = (require_dict['sex'] + 1) % 2
-#         else:
-#             require_dict['sex'] = input('Введите пол (M/F): ')
-#
-#         require_dict['interests'] = input('Введите интересы: ')
-#         require_dict['music'] = input('Введите музыкальные интересы: ')
-#         require_dict['books'] = input('Введите литературне интересы: ')
-#
-#         if require_dict['sex'].lower() not in ['m', 'f']:
-#             raise KeyError
-#
-#     except KeyError:
-#         print('Некорректный ввод, попробуйте сначала')
-#         require_dict = enter_data()
-#     except ValueError:
-#         print('Некорректный ввод, возраст должен быть в виде числа, попробуйте заново')
-#         require_dict = enter_data()
-#     return require_dict
+    city = params()['fields']['city']
+    city_change = input(f'Ваш город - {city},хотите его поменять? да/нет ')
+    if city_change == 'нет':
+        city2=city
+    else:
+        city2 = input('Введите, какой городок хотите? ')
+
+    interests = params()['fields']['interests']
+    interests_change = input(f'Ваши интересы - {interests},хотите их поменять? да/нет ')
+    if interests_change == 'нет':
+        interests2=interests
+    else:
+        interests2 = input('Введите, какие интересы хотите? ')
+
+    music = params()['fields']['music']
+    music_change = input(f'Ваша музыка - {music},хотите её поменять? да/нет ')
+    if music_change == 'нет':
+        music2 = music
+    else:
+        music2 = input('Введите, какую музыку хотите? ')
+
+    tv = params()['fields']['tv']
+    tv_change = input(f'Ваши любимые передачи - {tv},хотите их поменять? да/нет ')
+    if tv_change == 'нет':
+        tv2= tv
+    else:
+        tv2 = input('Введите, какой городочек хотите? ')
+
+    books = params()['fields']['books']
+    books_change = input(f'Ваши любимые передачи - {books},хотите их поменять? да/нет ')
+    if books_change == 'нет':
+        books2 = books
+    else:
+        books2 = input('Введите, какой городочек хотите? ')
+
+    games = params()['fields']['games']
+    games_change = input(f'Ваши любимые передачи - {games},хотите их поменять? да/нет ')
+    if games_change == 'нет':
+        games2 = games
+    else:
+        games2 = input('Введите, какой городочек хотите? ')
+
+    with open('response_user_info.json', 'r+') as file:
+        content = file.read()
+        file.seek(0)
+        content.replace(f'city: {city}', f'city: {city2}')
+        content.replace(f'interests: {interests}', f'interests: {interests2}')
+        content.replace(f'tv: {tv}', f'tv: {tv2}')
+        content.replace(f'books: {books}', f'books: {books2}')
+        content.replace(f'games: {games}', f'games: {games2}')
+        file.write(content)
+
+    response_dict = user_info_json['response'][0]
+    if 'deactivated' in response_dict.keys() or response_dict['is_closed'] and not response_dict['can_access_closed']:
+        print('Нет доступа в профиль, возможно, он закрыт')
+    else:
+        print('Пользовательские данные получены успешно')
+    return response_dict
 
 
-def get_requirements_dict():
-    #берёт и возвращает словарь предпочитаемых данных поиска пользователей
+def get_requirements_dict(): #берёт и возвращает словарь предпочитаемых данных поиска пользователей
     print('Введите данные')
     req_dict = enter_data()
     user_data = get_user_data(user_id)
@@ -137,27 +174,7 @@ def get_requirements_dict():
     print('Успешно')
     return req_dict
 
-
-def get_user_data(u_id):
-    #берёт данные пользователя и помещает их в словарь
-    print('Получение пользовательских данных...')
-    params['user_ids'] = u_id
-    params['fields'] = ['city', 'interests', 'music', 'movies', 'tv', 'books', 'games']
-    response_user_info = requests.get(
-        'https://api.vk.com/method/users.get',
-        params
-    )
-    user_info_json = response_user_info.json()
-    response_dict = user_info_json['response'][0]
-    if 'deactivated' in response_dict.keys() or response_dict['is_closed'] and not response_dict['can_access_closed']:
-        print('Нет доступа в профиль, возможно, он закрыт')
-    else:
-        print('Пользовательские данные получены успешно')
-        return response_dict
-
-
-def search_for_major_propers(req_dict):
-    #получение пользователей, соответствующих требованиям и возвращение списка пользователей
+def search_for_major_propers(req_dict): #получение пользователей, соответствующих требованиям и возвращение списка пользователей
     keys_list = ['city', 'age_to', 'age_from', 'sex']
     param = {
         'access_token': token,
@@ -175,18 +192,16 @@ def search_for_major_propers(req_dict):
     )
     search_users_json = response_search_users.json()
     search_users_result = search_users_json['response']['items']
-    return search_users_result
+    return search_users_result[0:9]
 
 
-def delete_marks(string1):
-    #удаляет все пунктуационные знаки из текста и возвращает результат
+def delete_marks(string1): #удаляет все пунктуационные знаки из текста и возвращает результат
     st = str.maketrans(dict.fromkeys(string.punctuation))
     string2 = string1.translate(st)
     return string2
 
 
-def make_list_from_dict(data_dict):
-    #объединяет все величины словаря в список слов. величины должны быть формата string
+def make_list_from_dict(data_dict): #объединяет все величины словаря в список слов. величины должны быть формата string
     major_user_keys = ['can_access_closed', 'id', 'first_name', 'last_name', 'city',
                        'age_from', 'age_to', 'sex', 'is_closed', 'track_code', 'relation']
     data_string = ''
@@ -199,8 +214,8 @@ def make_list_from_dict(data_dict):
     return data_list
 
 
-def search_for_minor_propers(list1, user_data_dict):
-    #проверяет если пользователь имеет некоторые схожести в неосновных требованиях. возвращает список "количество_схожести: пользователь"
+def search_for_minor_propers(list1, user_data_dict): #проверяет если пользователь имеет некоторые схожести в неосновных требованиях.
+    # возвращает список "количество_схожести: пользователь"
     count = 0
     res_dict = {}
     list2 = make_list_from_dict(user_data_dict)
@@ -212,8 +227,7 @@ def search_for_minor_propers(list1, user_data_dict):
     return res_dict
 
 
-def get_users_dict(string1, users_list):
-    #возвращает словарь с количеством совпадений как ключи и списки id как величины
+def get_users_dict(string1, users_list): #возвращает словарь с количеством совпадений как ключи и списки id как величины
     res_dict = {}
     ind = 0
     for usr in users_list:
@@ -229,8 +243,7 @@ def get_users_dict(string1, users_list):
     return res_dict
 
 
-def sort_data_dict(data_dict):
-    #сортирует входящий словарь по ключу и возвращает их значения в сортированный список от максимального к минимальному
+def sort_data_dict(data_dict): #сортирует входящий словарь по ключу и возвращает их значения в сортированный список от максимального к минимальному
     res_list = []
     keys_list = list(data_dict.keys())
     keys_list.sort()
@@ -240,8 +253,7 @@ def sort_data_dict(data_dict):
     return res_list
 
 
-def get_best_photos(u_id):
-    #возвращает 3 пользовательских фотки из последних 20 фоток с наибольшим количеством лайков
+def get_best_photos(u_id): #возвращает 3 пользовательских фотки из последних 20 фоток с наибольшим количеством лайков
     photo_dict = {}
     param = {
         'access_token': token,
@@ -265,8 +277,7 @@ def get_best_photos(u_id):
     return pics_list
 
 
-def get_pics(user_dict):
-    #возвращает список словарей с id, лучшими фотками и количеством совпаений подходящих пользователей
+def get_pics(user_dict): #возвращает список словарей с id, лучшими фотками и количеством совпаений подходящих пользователей
     final_dict = {}
     final_list = []
     for key, value in user_dict.items():
@@ -280,21 +291,21 @@ def get_pics(user_dict):
 
 
 def create_db():
-    cur.execute('''CREATE TABLE IF NOT EXISTS photos(
+    cur().execute('''CREATE TABLE IF NOT EXISTS photos(
     id serial PRIMARY KEY,
     photo1_id INTEGER,
     photo2_id INTEGER,
     photo3_id INTEGER);
     ''')
-    conn.commit()
+    conn().commit()
 
-    cur.execute('''CREATE TABLE IF NOT EXISTS users(
+    cur().execute('''CREATE TABLE IF NOT EXISTS users(
     key_id serial PRIMARY KEY,
     id integer NOT NULL,
     matches integer NOT NULL,
     photos_id integer REFERENCES photos(id));
     ''')
-    conn.commit()
+    conn().commit()
 
 
 def set_to_base(user_dict):
@@ -305,12 +316,11 @@ def set_to_base(user_dict):
     while len(photos_ids) < 3:
         photos_ids.append(0)
 
-    cur.execute('INSERT INTO photos (photo1_id, photo2_id, photo3_id) VALUES (%s, %s, %s)',
+    cur().execute('INSERT INTO photos (photo1_id, photo2_id, photo3_id) VALUES (%s, %s, %s)',
                 (photos_ids[0], photos_ids[1], photos_ids[2]))
-    conn.commit()
-    cur.execute('INSERT INTO users (id, matches) VALUES (%s, %s)', (user_dict['id'], user_dict['matches']))
-    conn.commit()
-    # print('done')
+    conn().commit()
+    cur().execute('INSERT INTO users (id, matches) VALUES (%s, %s)', (user_dict['id'], user_dict['matches']))
+    conn().commit()
 
 
 if __name__ == '__main__':
@@ -322,7 +332,7 @@ if __name__ == '__main__':
         users_list = []
         for user in users_data_list:
             users_list.append(user['id'])
-        suitable_users_dict[1] = users_list
+        suitable_users_dict[1] = users_list [0:9]
     file_name = user_id + 'recommendations.json'
     file_info = get_pics(suitable_users_dict)
     create_db()
